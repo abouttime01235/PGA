@@ -1,0 +1,89 @@
+<script>
+    //////
+    /*
+        Given a long list of numbers (space delimited), print all the palindrome subsets 
+        having length >1 char and 
+        not contained in each other, 
+        partially overlapping palindromes are fine.
+        what about double digit numbers or very large numbers?
+        e.g. 
+        Input: “1 2 3 2 3 4 3 4 5 4 5 6 5 6 7 6 7 8”
+        Output: “2 3 2”,”3 2 3”,”3 4 3”,”4 3 4”,”4 5 4”,"5 4 5",”5 6 5”,”6 5 6”,”6 7 6”,”7 6 7”
+        Input: "1 2 1 1 3 3 1 1 3 4 3 1 1 2 1 1 3 4 3 1 1 3 3 1 1 2 1"
+        Output: "1 2 1 1 3 3 1 1 3 4 3 1 1 2 1 1 3 4 3 1 1 3 3 1 1 2 1"
+        Input: "1 3 5 7 5 3 12 13 12 3 5"
+        Output: "3 5 7 5 3", "5 3 12 13 12 3 5"
+    */
+    // Author: Abhinav Khanna
+    //////
+    document.write("<b>Palindrome Finder</b><br>");
+    var palindromes = []; //this is a 2D array: [str, start_index, end_index]
+
+    function GenPali() {
+        var inputStr = document.getElementById("seq").value;
+        var input = inputStr.split(',');
+        palindromes = [];
+        //generate all substrings 
+        for (var i = 0; i < input.length; i++)
+            for (var j = 2; j < input.length - i + 1; j++) {
+                var str = [];
+                for (k = i; k < i + j; k++) str.push(input[k].trim());
+                if (isPali(str)) {
+                    palindromes.push([str.toString(), i, i + j - 1]);
+                }
+            }
+        printPalindromes();
+    }
+
+    function printPalindromes() {
+        var out = document.getElementById("output");
+        var pali_hwm = 0;
+        out.innerHTML = '';
+        if (palindromes.length > 0)
+            if (document.getElementById("nested").checked) {
+                //out.innerHTML = palindromes.toString();
+                for (var i = 0; i < palindromes.length; i++) {
+                    out.innerHTML += palindromes[i][0] + "<br>";
+                }
+            } else {
+                //donot print those whose indices are within other indices
+                // array is alsready sorted by start indices of palindrome strings
+                for (var i = 0; i < palindromes.length; i++) {
+                    var str = palindromes[i][0];
+                    var pali_start = palindromes[i][1];
+                    var pali_end = palindromes[i][2];
+                    //check for next non nested palindrome
+                    if (pali_end > pali_hwm) {
+                        for (var j = i + 1; j < palindromes.length; j++) {
+                            //check for biggest palidrome
+                            if (palindromes[j][1] == pali_start && palindromes[j][2] > pali_end) {
+                                pali_end = palindromes[j][2];
+                                str = palindromes[j][0];
+                                i = j;
+                            }
+                        }
+                        out.innerHTML += "<br>" + str;
+                        pali_hwm = pali_end;
+                    }
+                }
+                console.table(palindromes);
+            }
+        else
+            out.innerHTML = "No Plaindromes found";
+
+    }
+
+    function isPali(input) {
+        return (input.toString() == input.reverse().toString());
+    }
+
+    function reverse(str) {
+        return str.split('').reverse().join('');
+    }
+</script>
+
+<p style="color: blue">Input a sequence<br></p>
+<input type=text style="width:400" id="seq">
+<input type="checkbox" id=nested>Include Nested palindromes
+<input type=button onClick=GenPali() value="Check for palindromes">
+<p id="output" style="color:blue;"></p>

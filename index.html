@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.1.9/p5.js"></script>
+    <!--script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.1.9/addons/p5.sound.min.js"></script-->
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <meta charset="utf-8" />
+    <meta http-equiv="cache-control" content="no-cache, must-revalidate, post-check=0, pre-check=0" />
+    <meta http-equiv="cache-control" content="max-age=0" />
+    <meta http-equiv="expires" content="0" />
+    <meta http-equiv="expires" content="Tue, 01 Jan 1980 1:00:00 GMT" />
+    <meta http-equiv="pragma" content="no-cache" />
+    <script>
+        /*
+        Given a range of numbers (upper and lower limit), 
+        - print all the prime numbers and composite numbers (in different colors)
+        - print Composite and prime quantity (Base Code segments)
+        - print all the palindromes in BCS
+        - Palindromes should have length >1 number and not contained in each other, 
+        - //partially overlapping palindromes are fine
+        - look for threshold primes, where one palindrome stops and other one starts
+        
+        e.g. 
+        Input: “5”, "13"
+        Output: 
+        Number line: “5 6 7 8 9 10 11 12 13” //different colors for 5 7 11 13
+        BCS: "1 1 1 3 1 1 1" // Base Code Segments
+        Palindromes: "1 1 1 3 1 1 1" "5-9-13"
+    */
+        // Author: Abhinav Khanna
+        //////
+        var numbers = []; //2D array: [number, isprime]
+        var BCS = []; //2D array: [bcs, start_group,end_group]
+        var palindromes = []; //this is a 2D array for ALL palis: [str, start_index, end_index]
+        var outputArray = [];
+        //final output 2D [palindrome, pali_start, pali_center, pali_end, isNested,length]
+        const MAXPALILEN = 15;
+        const MINPALILEN = 1;
+        var maxpalisize = 15;
+        var minpalisize = 1;
+        var scalingfactor = 10;
+        var start = 0;
+        var end = 0;
+        var paliPreviewIndex = -1;
+        var printPrimes = true;
+        var printRadii = true;
+        var sideways = false;
+        var nested = true;
+        var sorted = false;
+        var searchStr = "";
+        var searchArr = [];
+        var showNested = false;
+        var view = "0"; //0 compact, 1 uncompacted
+        var myp5;
+
+        function init() {
+            //clear / reset
+            console.clear();
+            //document.getElementById("outputSketch").innerHTML = '';
+            start = parseInt(document.getElementById("start").value);
+            end = parseInt(document.getElementById("end").value);
+            //overload protection 
+            if (end > 1000000000000 || end - start > 50000 || start < 1) {
+                alert('Please enter a number range <=50k from 1 to 1T!');
+                return;
+            }
+
+            document.getElementById("output").innerHTML = '';
+            document.getElementById("preview").innerHTML = '';
+            paliPreviewIndex = -1;
+            sorted = false;
+            // searchStr = "";
+            // searchArr = [];
+            //showNested = false;
+            view = document.getElementById("view").value;
+            clearDiv("outputSketch");
+            var img = document.createElement("img");
+            img.src = "loading.gif";
+            document.getElementById("outputSketch").appendChild(img);
+
+
+            numbers = [];
+            BCS = [];
+
+            setTimeout(Analyze, 100); //100 ms enough to update dom I guess
+        }
+
+        function Analyze() {
+            for (var i = start; i <= end; i++) {
+                var isprime = isPrime(i);
+                numbers.push([i, isprime]);
+            }
+            //console.table(numbers);
+
+            //popuilate BCS array
+            var countComposite = 0;
+            var start_group = 0;
+            var end_group = 0;
+            for (let i = 0; i < numbers.length; i++) {
+                if (countComposite == 0) {
+                    start_group = numbers[i][0];
+                    end_group = numbers[i][0];
+                }
+
+                if (numbers[i][1] == false) {
+                    //its a composite, incrememnt count
+                    countComposite++;
+                    end_group = numbers[i][0];
+                } else {
+                    //its a prime, reset count
+                    if (countComposite > 0) BCS.push([countComposite, start_group, end_group]);
+                    countComposite = 0;
+                    start_group = numbers[i][0];
+                    end_group = numbers[i][0];
+                    BCS.push([1, start_group, end_group]);
+                }
+            }
+            if (countComposite > 0) BCS.push([countComposite, start_group, end_group]);
+            //console.table(BCS);
+            //Generate palindromes in BCS
+            GenPali();
+        }
+
+        function isPrime(number) {
+            var limit = Math.sqrt(number);
+            for (let i = 2; i <= limit; i++) {
+                if (number % i == 0) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function GenPali() {
+            palindromes = [];
+            // var minpalisize = parseInt(document.getElementById('minpalisize').value);
+            // var maxpalisize = Math.min(parseInt(document.getElementById('maxpalisize').value), MAXPALILEN);
+            // console.log('minmax palisize ' + minpalisize + '|' + maxpalisize);
+            //generate all prime-to-prime substrings 
+            var startTime = new Date();
+            for (var i = 0; i < BCS.length; i++) {
+                //check if palindrome starts with a prime
+                if (BCS[i][0] == 1 && numbers[BCS[i][1] - start][1] == true)
+                    for (var j = MINPALILEN * 2 + 1; j <= MAXPALILEN * 2 + 1 && j < BCS.length - i + 1; j++) {
+                        //j=3 => minimum 3 BCS for a palindrome, max MAXPALILEN *2+1
+                        //check if palindrome ends with a prime
+                        if (BCS[i + j - 1][0] == 1 && numbers[BCS[i + j - 1][1] - start][1] == true) {
+                            var str = [];
+                            for (k = i; k < i + j; k++) str.push(BCS[k][0]);
+                            if (isPali(str)) {
+                                palindromes.push([str.toString(), i, i + j - 1]);
+                            }
+                        }
+                    }
+            }
+            //let myp5 = new p5(sketch, output);
+            var endTime = new Date();
+            var timeDiff = (endTime - startTime) / 1000;
+            console.log('time in substrings' + timeDiff +
+                's');
+            printPalindromes();
+            var endTime2 = new Date();
+            var timeDiff = (endTime2 - endTime) / 1000;
+
+            console.log('time in printPali' + timeDiff + 's');
+
+        }
+
+        function printPalindromes() {
+            var out = document.getElementById("output");
+
+            var pali_hwm = 0;
+            outputArray = []; //2D [palindrome, pali_start, pali_center, pali_end, isNested]
+            out.innerHTML = '';
+            clearDiv("outputSketch");
+            if (palindromes.length > 0) {
+                for (var i = 0; i < palindromes.length; i++) {
+                    var pali_str = palindromes[i][0];
+                    var pali_BCS_start = BCS[palindromes[i][1]][1];
+                    var pali_BCS_end = BCS[palindromes[i][2]][2];
+                    outputArray.push([pali_str, pali_BCS_start, (pali_BCS_end + pali_BCS_start) / 2, pali_BCS_end,
+                        null, (palindromes[i][2] - palindromes[i][1]) / 2
+                    ]); //isNested null for now 
+                }
+                // check for nested and update outputArray isNested 
+                var isNested;
+                for (var i = 0; i < outputArray.length; i++) {
+                    isNested = false;
+                    //find a bigger palindrome with same starting point -> isNested= true 
+                    for (var j = 0; j < outputArray.length; j++) {
+                        if (i != j && outputArray[j][1] <= outputArray[i][1] && outputArray[j][3] >= outputArray[i][
+                                3
+                            ]) {
+                            isNested = true;
+                            break;
+                        }
+                    }
+                    outputArray[i][4] = isNested;
+                }
+                //console.table(palindromes);
+                //console.table(outputArray);
+                // myp5 = new p5(sketch, outputSketch);
+                // console.log(scalingfactor);
+                // out.innerHTML = makeTableHTML();
+                var endTime2 = new Date();
+                render();
+                var endTime3 = new Date();
+                var timeDiff = (endTime3 - endTime2) / 1000;
+                console.log('time in render' + timeDiff + 's');
+
+            } else
+                out.innerHTML = "No Plaindromes found";
+        }
+
+        function render() {
+            if (outputArray.length == 0) return;
+            var out = document.getElementById("output");
+            clearDiv("outputSketch");
+            var tmp = paliPreviewIndex;
+            if (paliPreviewIndex >= 0)
+                paliPreviewIndex = -1;
+            myp5 = new p5(GenSketch, outputSketch);
+            paliPreviewIndex = tmp;
+            console.log(scalingfactor);
+            out.innerHTML = makeTableHTML();
+            if (paliPreviewIndex >= 0) {
+                document.getElementById("preview").innerHTML = '';
+                let paliPreview = new p5(GenSketch, preview);
+            }
+
+
+        }
+
+        function clearDiv(id) {
+            var div = document.getElementById(id);
+            while (div.firstChild) {
+                div.removeChild(div.firstChild);
+            }
+        }
+
+        function isPali(input) {
+            var flag = true;
+            var length = input.length;
+            for (i = 0; i < length / 2; i++) {
+                if (input[i] != input[length - i - 1]) {
+                    flag = false;
+                    break;
+                }
+            }
+            //return (input.toString() == input.reverse().toString());
+            return flag;
+        }
+
+        // function reverse(str) {
+        //     return str.split('').reverse().join('');
+        // }
+
+
+        function sortTable() {
+            var out = document.getElementById("output");
+            sorted = !sorted;
+            out.innerHTML = makeTableHTML();
+        }
+
+        function sortbyLength(a, b) {
+            if (a[0] === b[0])
+                return 0;
+            else if (a[0].split(',').length == b[0].split(',').length)
+                return (a[0] < b[0]) ? 1 : -1;
+            //    return (b[3] - b[1] - a[3] + a[1]);
+            else
+                return (b[0].split(',').length - a[0].split(',').length);
+        }
+
+        function sortbyRange(a, b) {
+            if (a[0] === b[0])
+                return 0;
+            else if (a[0].split(',').length == b[0].split(',').length)
+                return (b[3] - b[1] - a[3] + a[1]);
+        }
+
+        function sortbyStart(a, b) {}
+
+        function sortbyCentre(a, b) {
+            return ((a[2] == b[2]) ? (a[1] - b[1]) : (a[2] - b[2]));
+        }
+
+        function makeSearchbox() {
+            var searchbox = "";
+            searchbox =
+                "&nbsp;<input id='searchtable' type ='search' placeholder='search palindromes...'" +
+                ((searchStr != "") ? "value='" + searchStr + "'" : "'") +
+                "  autocomplete=\"off\" onsearch='doSearch();'/></td>";
+            return searchbox;
+        }
+
+        function doSearch() {
+            searchStr = document.getElementById('searchtable').value.trim();
+            searchArr = searchStr.split(" ");
+            //alert(searchStr);
+            // var out = document.getElementById("output");
+            // out.innerHTML = makeTableHTML();
+            render();
+        }
+
+        function evalSearch(str) {
+            if (searchStr.startsWith('='))
+                if ('=' + str == searchStr)
+                    return true;
+            for (var i = 0; i < searchArr.length; i++)
+                if ((',' + str + ',').indexOf(',' + searchArr[i] + ',') >= 0)
+                    return true;
+            return false;
+        }
+
+        function makeTableHTML() {
+            var myArray = outputArray;
+            var result =
+                //"<form class =\"form-inline\" onsubmit=\"event.preventDefault();doSearch();\" role=\"search\">" +
+                "<table border=0.5>";
+            //header row
+            result +=
+                "<tr><td>Index</td><td>PG Palindromes " +
+                "<a href='javascript:sortTable();'>" + ((sorted) ? "unsort" : "sort") + "</a>" +
+                makeSearchbox() +
+                "<td>Start</td><td>Centre</td><td>End</td><td style=\"color:brown\">#</td><td>Range</td></tr>";
+            if (sorted) {
+                myArray.sort(sortbyLength);
+                myArray.sort(sortbyRange);
+            } else
+                myArray.sort(sortbyCentre);
+
+            //data rows
+            var index = 0;
+            for (var i = 0; i < myArray.length; i++) {
+                if (myArray[i][5] >= minpalisize && myArray[i][5] <= maxpalisize)
+                    if (showNested || !showNested && !myArray[i][4])
+                        if (searchStr == "" || searchStr != "" && evalSearch(myArray[i][0])) {
+                            if (myArray[i][4])
+                                result += "<tr onclick=showPali(" + i +
+                                "); style=\"color:darkslategrey;font-style: italic;\">";
+                            else
+                                result += "<tr onclick=showPali(" + i + ");>";
+
+                            //result += "<i style=\"color:red\">";
+                            result += "<td>" + index + "</td>"; //this is the index
+                            for (var j = 0; j < myArray[i].length; j++) {
+                                if (j == 4) continue;
+                                result += "<td>" + myArray[i][j] + "</td>";
+                            }
+                            result += "<td>" + (myArray[i][3] - myArray[i][1] + 1) + "</td>"; //Range
+                            // if (myArray[i][4])
+                            //     result += "</i>";
+                            result += "</tr>";
+                            index++;
+                        }
+            }
+            result += "</table>";
+            //</form>";
+            return result;
+        }
+
+        function showPali(i) {
+            //alert(i);
+            paliPreviewIndex = i;
+            document.getElementById("preview").innerHTML = '';
+            let paliPreview = new p5(GenSketch, preview);
+        }
+
+        function makePaliSizeOptions(selected) {
+            var paliSizeOptions = "";
+            for (i = 1; i <= MAXPALILEN; i++) {
+                if (i == selected)
+                    paliSizeOptions += "<option selected>" + i + "</option>";
+                else
+                    paliSizeOptions += "<option>" + i + "</option>";
+            }
+            document.write(paliSizeOptions);
+        }
+    </script>
+
+</head>
+
+<body>
+    <b>Prime Gap Analyzer (version 2.1)</b>
+    <hr>
+    <p style="color: blue">Input a range (upto 50k) of positive numbers (upto 1 Trillion):
+        <input type=search style="width:120px" id="start" value=5 onsearch=init();>
+        <input type=search style="width:120px" id="end" value=881 onsearch=init();>
+        <input type=button onClick='init();' value="Analyze for prime gap palindromes"></p>
+    <p><input type="checkbox" id=nested onclick='showNested=this.checked;render();'>
+        Include <i style="color:darkslategrey;">Nested</i> palindromes
+        <input type="checkbox" id=primes checked onclick='printPrimes=this.checked;render();'>Print Primes
+        <input type="checkbox" id=radii checked onclick='printRadii=this.checked;render();'>Print Radii/Centre
+        &nbsp;&nbsp;View: <select name="view" id="view" onchange='view=this.value;render();'>
+            <option value=0 selected>Compacted</option>
+            <option value=1>Uncompacted</option>
+            <!--option value=2>Concentric</option-->
+        </select>&nbsp;
+        <input type="checkbox" id=sideways onclick='sideways=this.checked;render();'>Sideways&nbsp;
+        &nbsp; Palindrome size range:
+        <select style="width:40px" id="minpalisize" onchange='minpalisize=this.value;render();'>
+            <script>
+                makePaliSizeOptions(1);
+            </script>
+        </select>
+        &nbsp;-&nbsp;
+        <select style="width:40px" id="maxpalisize" onchange='maxpalisize=this.value;render();'>
+            <script>
+                makePaliSizeOptions(15);
+            </script>
+        </select>
+        (<i style="color:brown"># of gaps</i>)
+    </p>
+    <hr>
+    <div class="scrollable" id="outputSketch"></div>
+    <hr>
+    <div class="scrollable1" id="output"></div>
+    <div class="scrollable2" id="preview"></div>
+    <script src="numberline.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,54 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+canvas {
+  display: block;
+}
+
+.scrollable {
+  width: 1350px;
+  height: 300px;
+  overflow-x: auto;
+}
+
+.scrollable1 {
+  width: 550px;
+  height: 300px;
+  overflow-x: auto;
+  display: inline-block;
+}
+
+.scrollable2 {
+  width: 800px;
+  height: 300px;
+  overflow-x: auto;
+  display: inline-block;
+}
+
+table {
+  font-family: arial, sans-serif;
+  font-size: small;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+td,
+th {
+  border: 1px solid #dddddd;
+  text-align: left;
+  padding: 2px;
+}
+
+
+tr:nth-child(even) {
+  background-color: #f3f3f3e5;
+}
+
+tr:hover {
+  background-color: #c7c5c5;
+}
+
+/**/
